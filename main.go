@@ -11,25 +11,19 @@ type apiConfig struct {
 	fileserverHits atomic.Int32
 }
 
-func (cfg *apiConfig) middlewareMetricsInc(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		cfg.fileserverHits.Add(1)
-
-		next.ServeHTTP(w, r)
-	})
-}
-
 func main() {
 	const filepathRoot = "."
 	const port = "8080"
 
-	cfg := &apiConfig{}
+	apiCfg := apiConfig{
+		fileserverHits: atomic.Int32{},
+	}
 	mux := http.NewServeMux()
 	fileServerHandler := http.StripPrefix("/app", http.FileServer(http.Dir(filepathRoot)))
-	mux.Handle("/app/", cfg.middlewareMetricsInc(fileServerHandler))
-	mux.HandleFunc("/healthz", readinessHandler)
-	mux.HandleFunc("/metrics", cfg.numberOfRequestsHandler)
-	mux.HandleFunc("/reset", cfg.numberOfRequestsReset)
+	mux.Handle("/app/", apiCfg.middlewareMetricsInc(fileServerHandler))
+	mux.HandleFunc("/healthz", handlerReadiness)
+	mux.HandleFunc("/metrics", apiCfg.handleMetrics)
+	mux.HandleFunc("/reset", apiCfg.handleReset)
 
 	srv := &http.Server{
 		Addr:    ":" + port,
@@ -40,21 +34,16 @@ func main() {
 	srv.ListenAndServe()
 }
 
-func readinessHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Add("Content-Type", "text/plain; charset=utf-8")
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(http.StatusText(http.StatusOK)))
+func (cfg *apiConfig) middlewareMetricsInc(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		cfg.fileserverHits.Add(1)
+
+		next.ServeHTTP(w, r)
+	})
 }
 
-func (cfg *apiConfig) numberOfRequestsHandler(w http.ResponseWriter, r *http.Request) {
+func (cfg *apiConfig) handleMetrics(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add("Content-Type", "text/plain; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(fmt.Sprintf("Hits: %d", cfg.fileserverHits.Load())))
-}
-
-func (cfg *apiConfig) numberOfRequestsReset(w http.ResponseWriter, r *http.Request) {
-	w.Header().Add("Content-Type", "text/plain; charset=utf-8")
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(fmt.Sprintf("Resetting number of requests")))
-	cfg.fileserverHits.Store(0)
 }
