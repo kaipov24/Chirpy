@@ -15,7 +15,8 @@ import (
 
 type apiConfig struct {
 	fileserverHits atomic.Int32
-	Queries        *database.Queries
+	db             *database.Queries
+	platform       string
 }
 
 func main() {
@@ -26,6 +27,12 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error opening database: %s", err)
 	}
+
+	platform := os.Getenv("PLATFORM")
+	if platform == "" {
+		log.Fatal("PLATFORM must be set")
+	}
+
 	dbQueries := database.New(db)
 
 	const filepathRoot = "."
@@ -33,7 +40,8 @@ func main() {
 
 	apiCfg := apiConfig{
 		fileserverHits: atomic.Int32{},
-		Queries:        dbQueries,
+		db:             dbQueries,
+		platform:       platform,
 	}
 	mux := http.NewServeMux()
 	fileServerHandler := http.StripPrefix("/app", http.FileServer(http.Dir(filepathRoot)))
@@ -42,6 +50,7 @@ func main() {
 	// api endpoints
 	mux.HandleFunc("GET /api/healthz", handlerReadiness)
 	mux.HandleFunc("POST /api/validate_chirp", handlerChirpsValidate)
+	mux.HandleFunc("POST /api/users", apiCfg.handlerUserCreate)
 
 	// admin endpoints
 	mux.HandleFunc("GET /admin/metrics", apiCfg.handleMetrics)
