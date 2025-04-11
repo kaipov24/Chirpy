@@ -26,7 +26,7 @@ func (cfg *apiConfig) handlerUserUpgrade(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	if params.Event != "user.upgrade" {
+	if params.Event != "user.upgraded" {
 		respondWithError(w, http.StatusNoContent, "Invalid event", nil)
 		return
 	}
