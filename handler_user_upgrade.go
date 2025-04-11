@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/google/uuid"
+	"github.com/kaipov24/Chirpy/internal/auth"
 )
 
 func (cfg *apiConfig) handlerUserUpgrade(w http.ResponseWriter, r *http.Request) {
@@ -42,6 +43,20 @@ func (cfg *apiConfig) handlerUserUpgrade(w http.ResponseWriter, r *http.Request)
 			return
 		}
 		respondWithError(w, http.StatusInternalServerError, "Couldn't update user", err)
+		return
+	}
+
+	apiKey, err := auth.GetAPIKey(r.Header)
+
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "Invalid API key", err)
+		return
+	}
+
+	apiKeyMatch := cfg.polkaKey == apiKey
+
+	if !apiKeyMatch {
+		respondWithError(w, http.StatusUnauthorized, "Invalid API key", nil)
 		return
 	}
 
