@@ -5,6 +5,7 @@ import (
 )
 
 func (cfg *apiConfig) handlerChirpsList(w http.ResponseWriter, r *http.Request) {
+	authorId := r.URL.Query().Get("author_id")
 
 	users, err := cfg.db.GetChirps(r.Context())
 
@@ -14,6 +15,7 @@ func (cfg *apiConfig) handlerChirpsList(w http.ResponseWriter, r *http.Request) 
 	}
 
 	var chirps []Chirp
+
 	for _, user := range users {
 		chirps = append(chirps, Chirp{
 			ID:        user.ID,
@@ -22,6 +24,16 @@ func (cfg *apiConfig) handlerChirpsList(w http.ResponseWriter, r *http.Request) 
 			Body:      user.Body,
 			UserID:    user.UserID,
 		})
+	}
+
+	if authorId != "" {
+		var filteredChirps []Chirp
+		for _, chirp := range chirps {
+			if chirp.UserID.String() == authorId {
+				filteredChirps = append(filteredChirps, chirp)
+			}
+		}
+		chirps = filteredChirps
 	}
 
 	respondWithJSON(w, http.StatusOK,
